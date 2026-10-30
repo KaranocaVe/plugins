@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { readFile, mkdir, rename, unlink } from 'node:fs/promises';
+import { readFile, mkdir, rename, unlink, access } from 'node:fs/promises';
 import { join, resolve, extname } from 'node:path';
 import { loadDetector, parseNumbers, type Detector } from '../vendor/lmfpd-sdk/index.js';
 import { options, type Options } from './config';
@@ -62,14 +62,20 @@ export async function startServer(input: Options = {}) {
         await mkdir(opt.dataDir, { recursive: true, mode: 0o700 });
         const cache = join(
           opt.dataDir,
-          force ? `reference-refresh-${uuid()}.bin` : 'reference.bin',
+          force && (!opt.bankSource || /^https?:\/\//i.test(opt.bankSource))
+            ? `reference-refresh-${uuid()}.bin`
+            : 'reference.bin',
         );
         try {
           const next = await loadDetector({
             ...(opt.bankSource ? { source: opt.bankSource } : {}),
             cache,
+            // Cached data never schedules the SDK's background refresh.
+            // Only an explicit download action replaces the cached snapshot.
+            ttl: Infinity,
           });
-          if (force && !opt.bankSource) await rename(cache, join(opt.dataDir, 'reference.bin'));
+          if (force && cache !== join(opt.dataDir, 'reference.bin'))
+            await rename(cache, join(opt.dataDir, 'reference.bin'));
           detector = next;
           try {
             const bytes = await readFile(join(opt.dataDir, 'reference.bin'));
@@ -79,7 +85,8 @@ export async function startServer(input: Options = {}) {
             /* Local reference directories need no downloaded cache. */
           }
         } finally {
-          if (force) await unlink(cache).catch(() => {});
+          if (force && cache !== join(opt.dataDir, 'reference.bin'))
+            await unlink(cache).catch(() => {});
         }
         bankError = '';
         return detector;
@@ -91,6 +98,25 @@ export async function startServer(input: Options = {}) {
       }
     })();
     return loading;
+  }
+  function bankInfo() {
+    return opt.demo
+      ? { builtAt: 'Demo reference data', modelCount: 64 }
+      : detector
+        ? { builtAt: detector.builtAt, modelCount }
+        : null;
+  }
+  async function bankStatus() {
+    if (opt.demo || detector) return { state: 'ready' as const };
+    const localSource = opt.bankSource && !/^https?:\/\//i.test(opt.bankSource);
+    const file = localSource
+      ? join(opt.bankSource!, 'unified_bank.json')
+      : join(opt.dataDir, 'reference.bin');
+    const cached = await access(file).then(
+      () => true,
+      () => false,
+    );
+    return { state: cached ? ('cached' as const) : ('missing' as const) };
   }
   async function catalog() {
     if (opt.demo) {
@@ -442,17 +468,14 @@ export async function startServer(input: Options = {}) {
           if (api) {
             const path = url.pathname;
             if (path === '/api/bootstrap' && req.method === 'GET') {
-              const [cat] = await Promise.all([catalog(), ensureDetector()]);
+              const cat = await catalog();
               response = json({
                 version: VERSION,
                 demo: opt.demo,
                 ...cat,
                 jobs: store.list(),
-                bank: opt.demo
-                  ? { builtAt: 'Demo reference data', modelCount: 64 }
-                  : detector
-                    ? { builtAt: detector.builtAt, modelCount }
-                    : null,
+                bank: bankInfo(),
+                bankStatus: await bankStatus(),
                 gateway: {
                   url: opt.gateway,
                   reachable: opt.demo || !catalogError,
@@ -482,14 +505,12 @@ export async function startServer(input: Options = {}) {
                 const text = await boundedText(req, 16384);
                 const config = JSON.parse(text) as RunConfig;
                 await catalog();
+                // Reject malformed targets before allowing any reference download.
+                const job = createJob(config, models, '');
                 const engine = await ensureDetector();
                 if (!opt.demo && !engine)
                   return json({ error: bankError || 'Reference data unavailable' }, 503, cors);
-                const job = createJob(
-                  config,
-                  models,
-                  opt.demo ? 'Demo reference data' : engine!.builtAt,
-                );
+                job.bank.builtAt = opt.demo ? 'Demo reference data' : engine!.builtAt;
                 if (opt.demo) job.demo = true;
                 store.jobs.set(job.id, job);
                 await store.save(job);
@@ -502,12 +523,19 @@ export async function startServer(input: Options = {}) {
               } finally {
                 creatingJob = false;
               }
-            } else if (path === '/api/reload-data' && req.method === 'POST') {
+            } else if (
+              (path === '/api/bank/download' || path === '/api/reload-data') &&
+              req.method === 'POST'
+            ) {
               await ensureDetector(true);
-              response = json({
-                bank: detector ? { builtAt: detector.builtAt } : null,
-                error: bankError || undefined,
-              });
+              response = json(
+                {
+                  bank: bankInfo(),
+                  bankStatus: await bankStatus(),
+                  error: bankError || undefined,
+                },
+                bankError ? 503 : 200,
+              );
             } else {
               const m = path.match(/^\/api\/jobs\/([\w-]+)(?:\/(cancel|events|export))?$/);
               const job = m ? store.jobs.get(m[1]) : undefined;
@@ -585,7 +613,10 @@ export async function startServer(input: Options = {}) {
                   },
                 });
                 response = new Response(stream, {
-                  headers: { 'content-type': 'text/event-stream', 'x-accel-buffering': 'no' },
+                  headers: {
+                    'content-type': 'text/event-stream',
+                    'x-accel-buffering': 'no',
+                  },
                 });
               } else if (!m![2] && req.method === 'GET') response = json(job);
               else if (!m![2] && req.method === 'DELETE') {

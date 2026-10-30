@@ -25,21 +25,22 @@ magpie plugin add @magpie-community/page-fingerprint
 
 ## 开发
 
-在 `packages/fingerprint/` 中运行以下命令。源码、测试和可安装的 `dist/` 均纳入版本控制；MIT SDK 0.2.0 固定在 `vendor/lmfpd-sdk/`。安装插件及运行离线测试无需下载包，仅重建 UI、执行类型检查需要开发依赖。构建工具版本固定在 `package.json`；源码更新后重建并提交 `dist/`，不依赖安装或打包时执行脚本。
+在 `packages/fingerprint/` 中运行以下命令。源码、测试和可安装的 `dist/` 均纳入版本控制；MIT SDK 0.2.0 固定在 `vendor/lmfpd-sdk/`。安装插件及运行离线测试无需下载包，仅重建 UI、执行类型检查需要开发依赖。直接构建依赖在 `package.json` 中固定为精确版本，`bun.lock` 锁定完整依赖树并使用 `registry.npmjs.org`，构建使用 Bun 1.4.4；源码更新后重建并提交 `dist/`，不依赖安装或打包时执行脚本。
 
 独立项目及发布记录见 [KaranocaVe/magpie-fingerprint](https://github.com/KaranocaVe/magpie-fingerprint)。
 
 ```sh
-bun install
-bun run check
+bun run rebuild
 bun start
 ```
 
-页面服务默认监听 `3488`，通过 `http://127.0.0.1:3425` 使用 Magpie 网关。首次加载会下载并缓存 lm-detector 参考库，刷新可重新检查；参考库下载不携带 provider 凭证或模型回答。仅主动开始任务才会通过网关发送采样提示。网关认证、`magpie web`、环境变量和显式的 `--demo` fixture 见 [integration.md](integration.md)。
+`rebuild` 在隔离副本中使用 `--frozen-lockfile --ignore-scripts` 安装，完成类型检查、测试和构建，再复制 `dist/` 回来并清理临时目录，避免 Bun 使用父级 monorepo 的 workspace 配置。
+
+页面服务默认监听 `3488`，通过 `http://127.0.0.1:3425` 使用 Magpie 网关。打开、刷新页面不会下载参考库，也没有后台刷新。点击「下载参考数据」会下载新快照；启动检测时仅在没有可用缓存时下载。主源为 `https://lm.ikale.io/data/`，备用源为 `https://cdn.jsdmirror.com/npm/lmfpd-data@latest/`。这两个域名会看到客户端 IP；下载请求不携带 provider 凭证、模型标识、提示词或回答。仅主动开始任务才会通过网关发送采样提示。网关认证、`magpie web`、环境变量和离线数据源见 [integration.md](integration.md)。
 
 ## 范围与限制
 
-首版实现数字指纹，分词器探测留待后续。概率只在参考库候选中分配，不能当成模型身份的证明。Magpie 的 middleware 和协议适配仍会生效；检测到实际 provider/model 变化时，该目标停止评分。固定账号可选，支持填写账号标识；已缓存的订阅账号可供补全。
+首版实现数字指纹，分词器探测留待后续。每批任务保留其已加载的数据快照并记录 `builtAt`；远程参考库没有固定发布版本，也没有本地预置的哈希校验，备用源使用 `@latest`。概率只在参考库候选中分配，不能当成模型身份的证明。Magpie 的 middleware 和协议适配仍会生效；检测到实际 provider/model 变化时，该目标停止评分。固定账号可选，支持填写账号标识；已缓存的订阅账号可供补全。
 
 `bun start --demo` 提供独立的示例模式，不调用真实模型。任务被宿主重启打断后会标为「已中断」，保留已收到的回答。
 

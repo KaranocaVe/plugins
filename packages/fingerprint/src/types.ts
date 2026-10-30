@@ -65,6 +65,7 @@ export interface Bootstrap {
   accounts: Account[];
   jobs: Job[];
   bank: { builtAt: string; modelCount?: number } | null;
+  bankStatus: { state: 'missing' | 'cached' | 'ready' };
   gateway: { url: string; reachable: boolean; error?: string };
   bankError?: string;
 }

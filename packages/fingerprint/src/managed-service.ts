@@ -36,7 +36,7 @@ export async function startManagedService(input: Options = {}, pollMs = 1000) {
       /* An occupied port is never assumed to be our service. */
     }
     throw new Error(
-      `Port ${opt.port} belongs to an incompatible Fingerprint service or another application. Use another port, or turn Fingerprint off and on after upgrading from v0.1.0.`,
+      `Port ${opt.port} belongs to an incompatible Fingerprint service or another application. Use another port, or turn Fingerprint off and on after upgrading.`,
     );
   };
   const acquire = async () => {

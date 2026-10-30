@@ -21,6 +21,8 @@ import {
 } from '@phosphor-icons/react';
 import type { Bootstrap, Job, Model, RunConfig, Target, TargetResult } from '../src/types';
 import { embedded, subscribeTheme } from './magpie';
+import { AppMenu } from './AppMenu';
+import { localeFor, type Locale } from './locale';
 import './vendor/magpie-ui.css';
 import './style.css';
 
@@ -43,7 +45,44 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return r.json();
 }
-const zh = {
+type Text = {
+  locale: Locale;
+  detect: string;
+  history: string;
+  settings: string;
+  ready: string;
+  offline: string;
+  start: string;
+  cancel: string;
+  search: string;
+  selected: string;
+  noModels: string;
+  provider: string;
+  model: string;
+  account: string;
+  protocol: string;
+  effort: string;
+  tier: string;
+  strict: string;
+  targetParallel: string;
+  sampleParallel: string;
+  deadline: string;
+  estimated: string;
+  live: string;
+  results: string;
+  candidates: string;
+  details: string;
+  export: string;
+  demo: string;
+  clear: string;
+  completed: string;
+  running: string;
+  failed: string;
+  queued: string;
+  cancelled: string;
+};
+const zh: Text = {
+  locale: 'zh-Hans',
   detect: '指纹检测',
   history: '检测历史',
   settings: '运行设置',
@@ -78,7 +117,44 @@ const zh = {
   queued: '排队中',
   cancelled: '已取消',
 };
-const en = {
+const zhHant: Text = {
+  locale: 'zh-Hant',
+  detect: '指紋檢測',
+  history: '檢測歷史',
+  settings: '執行設定',
+  ready: '服務已連線',
+  offline: '服務離線',
+  start: '開始檢測',
+  cancel: '取消任務',
+  search: '搜尋模型',
+  selected: '已選擇',
+  noModels: '暫無可用模型',
+  provider: '提供者',
+  model: '模型',
+  account: '帳號',
+  protocol: '協定',
+  effort: '推理強度',
+  tier: '服務等級',
+  strict: '完整樣本',
+  targetParallel: '模型並行',
+  sampleParallel: '樣本並行',
+  deadline: '逾時（秒）',
+  estimated: '預計請求',
+  live: '即時進度',
+  results: '檢測結果',
+  candidates: '候選排名',
+  details: '樣本詳情',
+  export: '匯出 JSON',
+  demo: '示例資料',
+  clear: '清除選擇',
+  completed: '已完成',
+  running: '執行中',
+  failed: '失敗',
+  queued: '排隊中',
+  cancelled: '已取消',
+};
+const en: Text = {
+  locale: 'en',
   detect: 'Fingerprint',
   history: 'History',
   settings: 'Run settings',
@@ -117,35 +193,40 @@ const en = {
 const terminal = (state: string) => !['queued', 'running'].includes(state);
 const integerInRange = (value: unknown, min: number, max: number) =>
   Number.isInteger(Number(value)) && Number(value) >= min && Number(value) <= max;
-const stateLabel = (t: typeof zh, state: string) =>
+const stateLabel = (t: Text, state: string) =>
   ({
     completed: t.completed,
     running: t.running,
     failed: t.failed,
     queued: t.queued,
     cancelled: t.cancelled,
-    interrupted: t === zh ? '已中断' : 'Interrupted',
-    scored: t === zh ? '已评分' : 'Scored',
-    partial: t === zh ? '部分样本' : 'Partial',
-    unscorable: t === zh ? '不可评分' : 'Unscorable',
-    not_model: t === zh ? '序列不符合检测假设' : 'Unexpected sequence',
-    complete: t === zh ? '完成' : 'Complete',
-    truncated: t === zh ? '已截断' : 'Truncated',
-    waiting: t === zh ? '等待响应' : 'Waiting',
-    streaming: t === zh ? '接收中' : 'Streaming',
+    interrupted: t.locale === 'en' ? 'Interrupted' : t.locale === 'zh-Hant' ? '已中斷' : '已中断',
+    scored: t.locale === 'en' ? 'Scored' : t.locale === 'zh-Hant' ? '已評分' : '已评分',
+    partial: t.locale === 'en' ? 'Partial' : t.locale === 'zh-Hant' ? '部分樣本' : '部分样本',
+    unscorable: t.locale === 'en' ? 'Unscorable' : t.locale === 'zh-Hant' ? '不可評分' : '不可评分',
+    not_model:
+      t.locale === 'en'
+        ? 'Unexpected sequence'
+        : t.locale === 'zh-Hant'
+          ? '序列不符合檢測假設'
+          : '序列不符合检测假设',
+    complete: t.locale === 'en' ? 'Complete' : t.locale === 'zh-Hant' ? '完成' : '完成',
+    truncated: t.locale === 'en' ? 'Truncated' : t.locale === 'zh-Hant' ? '已截斷' : '已截断',
+    waiting: t.locale === 'en' ? 'Waiting' : t.locale === 'zh-Hant' ? '等待回應' : '等待响应',
+    streaming: t.locale === 'en' ? 'Streaming' : t.locale === 'zh-Hant' ? '接收中' : '接收中',
   })[state] || state;
+const localize = (t: Text, hans: string, hant: string, english: string) =>
+  t.locale === 'en' ? english : t.locale === 'zh-Hant' ? hant : hans;
 function App() {
-  const [lang, setLang] = useState<'zh' | 'en'>(() => {
+  const [lang, setLang] = useState<Locale>(() => {
     try {
-      return (
-        (!embedded && (localStorage.getItem('fp-lang') as 'zh' | 'en')) ||
-        (window.__FINGERPRINT__?.lang?.startsWith('en') ? 'en' : 'zh')
-      );
+      const saved = !embedded ? localStorage.getItem('fp-lang') : null;
+      return localeFor(saved || window.__FINGERPRINT__?.lang);
     } catch {
-      return window.__FINGERPRINT__?.lang?.startsWith('en') ? 'en' : 'zh';
+      return localeFor(window.__FINGERPRINT__?.lang);
     }
   });
-  const t = lang === 'zh' ? zh : en;
+  const t = lang === 'en' ? en : lang === 'zh-Hant' ? zhHant : zh;
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
     try {
       return (
@@ -178,6 +259,7 @@ function App() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [downloadingBank, setDownloadingBank] = useState(false);
   const configValid =
     integerInRange(config.targetParallel, 1, 3) &&
     integerInRange(config.sampleParallel, 1, 3) &&
@@ -196,7 +278,7 @@ function App() {
     return () => media.removeEventListener('change', paint);
   }, [theme]);
   useEffect(() => {
-    if (!embedded) document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+    document.documentElement.lang = lang;
     try {
       if (!embedded) localStorage.setItem('fp-lang', lang);
     } catch {}
@@ -217,7 +299,9 @@ function App() {
     () =>
       subscribeTheme((next) => {
         setTheme(next.dark ? 'dark' : 'light');
-        setLang(next.lang?.startsWith('zh') ? 'zh' : 'en');
+        const locale = localeFor(next.lang);
+        document.documentElement.lang = locale;
+        setLang(locale);
       }),
     [],
   );
@@ -230,9 +314,35 @@ function App() {
       setJob((current) => current || b.jobs.find((j) => !terminal(j.state)) || null);
       if (window.__FINGERPRINT__?.initialProvider)
         setProvider(window.__FINGERPRINT__.initialProvider);
-      setError(b.gateway.error || b.bankError || '');
+      setError(b.gateway.error || '');
     } catch (e) {
       setError(String(e));
+    }
+  };
+  const downloadBank = async () => {
+    if (downloadingBank) return;
+    setDownloadingBank(true);
+    setError('');
+    try {
+      const result = await api<Pick<Bootstrap, 'bank' | 'bankStatus'> & { error?: string }>(
+        'api/bank/download',
+        { method: 'POST' },
+      );
+      setBoot((current) =>
+        current
+          ? {
+              ...current,
+              bank: result.bank,
+              bankStatus: result.bankStatus,
+              bankError: result.error,
+            }
+          : current,
+      );
+      if (result.error) setError(result.error);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setDownloadingBank(false);
     }
   };
   useEffect(() => {
@@ -312,9 +422,12 @@ function App() {
     if (!selected.length || starting) return;
     if (account && new Set(selectedModels.map((m) => m.provider)).size > 1) {
       setError(
-        lang === 'zh'
-          ? '固定账号时请只选择同一提供商的模型。'
-          : 'Select models from one provider when pinning an account.',
+        localize(
+          t,
+          '固定账号时请只选择同一提供商的模型。',
+          '固定帳號時請只選擇同一提供者的模型。',
+          'Select models from one provider when pinning an account.',
+        ),
       );
       return;
     }
@@ -382,7 +495,7 @@ function App() {
       <div className="page-tools">
         <nav
           className="segs"
-          aria-label={lang === 'zh' ? '指纹检测视图' : 'Fingerprint views'}
+          aria-label={localize(t, '指纹检测视图', '指紋檢測檢視', 'Fingerprint views')}
           role="tablist"
           onKeyDown={(e) => {
             if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
@@ -433,9 +546,7 @@ function App() {
               {!boot
                 ? error
                   ? t.offline
-                  : lang === 'zh'
-                    ? '正在连接…'
-                    : 'Connecting…'
+                  : localize(t, '正在连接…', '正在連線…', 'Connecting…')
                 : boot.gateway.reachable
                   ? t.ready
                   : t.offline}
@@ -444,19 +555,29 @@ function App() {
           <button
             className="icon icon-button"
             onClick={load}
-            aria-label={lang === 'zh' ? '刷新模型与检测历史' : 'Refresh models and history'}
-            title={lang === 'zh' ? '刷新' : 'Refresh'}
+            aria-label={localize(
+              t,
+              '刷新模型与检测历史',
+              '重新整理模型與檢測歷史',
+              'Refresh models and history',
+            )}
+            title={localize(t, '刷新', '重新整理', 'Refresh')}
           >
             <ArrowClockwise size={15} />
           </button>
           {!embedded && (
             <>
-              <button className="text" onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}>
-                {lang === 'zh' ? 'EN' : '中文'}
+              <button
+                className="text"
+                onClick={() =>
+                  setLang(lang === 'en' ? 'zh-Hans' : lang === 'zh-Hans' ? 'zh-Hant' : 'en')
+                }
+              >
+                {lang === 'en' ? '简体中文' : lang === 'zh-Hans' ? '繁體中文' : 'English'}
               </button>
               <button
                 className="icon icon-button"
-                aria-label={lang === 'zh' ? `主题：${theme}` : `Theme: ${theme}`}
+                aria-label={localize(t, `主题：${theme}`, `主題：${theme}`, `Theme: ${theme}`)}
                 onClick={() =>
                   setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light')
                 }
@@ -483,7 +604,7 @@ function App() {
           <div className="notice error" role="alert">
             <WarningCircle size={18} />
             <span>{error}</span>
-            <button onClick={load} aria-label={lang === 'zh' ? '重新连接' : 'Reconnect'}>
+            <button onClick={load} aria-label={localize(t, '重新连接', '重新連線', 'Reconnect')}>
               <ArrowClockwise size={16} />
             </button>
           </div>
@@ -503,24 +624,72 @@ function App() {
           <>
             <div className="intro">
               <p>
-                {lang === 'zh'
-                  ? '选择模型，用同一组挑战比较响应指纹。'
-                  : 'Select models to compare their fingerprints with shared challenges.'}
+                {localize(
+                  t,
+                  '选择模型，用同一组挑战比较响应指纹。',
+                  '選擇模型，用同一組挑戰比較回應指紋。',
+                  'Select models to compare their fingerprints with shared challenges.',
+                )}
               </p>
-              {boot?.bank && (
-                <span title={boot.bank.builtAt}>
-                  {lang === 'zh' ? '参考库' : 'Reference bank'} · {boot.bank.modelCount ?? '—'}{' '}
-                  {lang === 'zh' ? '个模型' : 'models'}
-                </span>
-              )}
+              <div className="bank-tools">
+                {boot?.bank ? (
+                  <span title={boot.bank.builtAt}>
+                    {localize(t, '参考库', '參考庫', 'Reference bank')} ·{' '}
+                    {boot.bank.modelCount ?? '—'} {localize(t, '个模型', '個模型', 'models')}
+                  </span>
+                ) : (
+                  <span>
+                    {boot?.bankStatus?.state === 'cached'
+                      ? localize(
+                          t,
+                          '参考数据已缓存，将在运行时读取',
+                          '參考資料已快取，執行時讀取',
+                          'Reference data cached; it will be read when a run starts',
+                        )
+                      : localize(
+                          t,
+                          '参考数据未下载',
+                          '參考資料尚未下載',
+                          'Reference data not downloaded',
+                        )}
+                  </span>
+                )}
+                <button
+                  className="ghost-button bank-download"
+                  type="button"
+                  onClick={downloadBank}
+                  disabled={!boot || downloadingBank || starting}
+                >
+                  <DownloadSimple size={14} />
+                  {downloadingBank
+                    ? localize(t, '下载中…', '下載中…', 'Downloading…')
+                    : localize(t, '下载参考数据', '下載參考資料', 'Download reference data')}
+                </button>
+                {boot?.bankError && (
+                  <span className="bank-error" role="alert">
+                    {boot.bankError}
+                  </span>
+                )}
+              </div>
             </div>
+            <p className="source-note">
+              {localize(
+                t,
+                '默认参考源：lm.ikale.io，备用 cdn.jsdmirror.com。仅主动下载或无缓存时启动检测才会连接；来源站点会看到 IP，不接收凭证、提示词或模型回答。',
+                '預設參考來源：lm.ikale.io，備用 cdn.jsdmirror.com。僅主動下載或無快取時開始檢測才會連線；來源網站會看到 IP，不接收憑證、提示詞或模型回答。',
+                'Default reference sources: lm.ikale.io, with cdn.jsdmirror.com as fallback. Contacted only on download or an uncached run; these hosts see your IP, but receive no credentials, prompts or replies.',
+              )}
+            </p>
             {boot?.demo && (
               <div className="notice demo">
                 <Lightning size={15} />
                 <span>
-                  {lang === 'zh'
-                    ? '示例数据，可直接试用检测流程。'
-                    : 'Demo data. Try the detection workflow.'}
+                  {localize(
+                    t,
+                    '示例数据，可直接试用检测流程。',
+                    '示例資料，可直接試用檢測流程。',
+                    'Demo data. Try the detection workflow.',
+                  )}
                 </span>
               </div>
             )}
@@ -529,7 +698,7 @@ function App() {
                 <div className="panel-title">
                   <div>
                     <h2>
-                      {lang === 'zh' ? '选择模型' : 'Models'}{' '}
+                      {localize(t, '选择模型', '選擇模型', 'Models')}{' '}
                       <span className="section-count">{models.length}</span>
                     </h2>
                   </div>
@@ -554,17 +723,15 @@ function App() {
                       onChange={(e) => setQuery(e.target.value)}
                     />
                   </div>
-                  <select
-                    aria-label={t.provider}
+                  <AppMenu
+                    label={t.provider}
                     value={provider}
-                    onChange={(e) => setProvider(e.target.value)}
-                  >
-                    {providers.map((p) => (
-                      <option key={p} value={p}>
-                        {p === 'all' ? t.provider : p}
-                      </option>
-                    ))}
-                  </select>
+                    options={providers.map((p) => ({
+                      value: p,
+                      label: p === 'all' ? t.provider : p,
+                    }))}
+                    onChange={setProvider}
+                  />
                 </div>
                 <div className="model-list">
                   {filtered.length ? (
@@ -594,9 +761,12 @@ function App() {
                       <p>
                         {boot
                           ? t.noModels
-                          : lang === 'zh'
-                            ? '正在加载模型与参考库…'
-                            : 'Loading models and reference data…'}
+                          : localize(
+                              t,
+                              '正在加载模型与参考库…',
+                              '正在載入模型與參考庫…',
+                              'Loading models and reference data…',
+                            )}
                       </p>
                     </div>
                   )}
@@ -614,9 +784,12 @@ function App() {
                     value={account}
                     list="account-options"
                     onChange={(e) => setAccount(e.target.value)}
-                    placeholder={
-                      lang === 'zh' ? '可选：账号 ID 或名称' : 'Optional account ID or name'
-                    }
+                    placeholder={localize(
+                      t,
+                      '可选：账号 ID 或名称',
+                      '可選：帳號 ID 或名稱',
+                      'Optional account ID or name',
+                    )}
                   />
                   <datalist id="account-options">
                     {(boot?.accounts || [])
@@ -635,30 +808,41 @@ function App() {
                 <div className="two-col">
                   <label>
                     {t.protocol}
-                    <select value={config.api} onChange={(e) => setField('api', e.target.value)}>
-                      <option value="auto">Auto</option>
-                      <option value="chat_completions">chat_completions</option>
-                      <option value="responses">responses</option>
-                      <option value="messages">messages</option>
-                    </select>
+                    <AppMenu
+                      label={t.protocol}
+                      value={config.api}
+                      options={[
+                        { value: 'auto', label: 'Auto' },
+                        { value: 'chat_completions', label: 'chat_completions' },
+                        { value: 'responses', label: 'responses' },
+                        { value: 'messages', label: 'messages' },
+                      ]}
+                      onChange={(value) => setField('api', value)}
+                    />
                   </label>
                   <label>
                     {t.effort}
-                    <select value={effort} onChange={(e) => setField('effort', e.target.value)}>
-                      <option value="">Default</option>
-                      {effortChoices.map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
+                    <AppMenu
+                      label={t.effort}
+                      value={effort}
+                      options={[
+                        { value: '', label: 'Default' },
+                        ...effortChoices.map((value) => ({ value, label: value })),
+                      ]}
+                      onChange={(value) => setField('effort', value)}
+                    />
                   </label>
                 </div>
                 <div className="switch-row">
                   <div>
-                    <strong>{lang === 'zh' ? '完整样本' : 'Complete samples'}</strong>
+                    <strong>{localize(t, '完整样本', '完整樣本', 'Complete samples')}</strong>
                     <small>
-                      {lang === 'zh' ? '仅接受完整的 3 条采样' : 'Require all three samples'}
+                      {localize(
+                        t,
+                        '仅接受完整的 3 条采样',
+                        '僅接受完整的 3 條取樣',
+                        'Require all three samples',
+                      )}
                     </small>
                   </div>
                   <button
@@ -678,21 +862,23 @@ function App() {
                   onClick={() => setShowAdvanced(!showAdvanced)}
                 >
                   {showAdvanced ? '−' : '+'}{' '}
-                  {lang === 'zh' ? '高级并行与超时' : 'Concurrency & deadline'}
+                  {localize(t, '高级并行与超时', '進階並行與逾時', 'Concurrency & deadline')}
                 </button>
                 {showAdvanced && (
                   <div className="advanced" id="run-advanced">
                     <label>
                       {t.tier}
-                      <select
+                      <AppMenu
+                        label={t.tier}
                         value={config.serviceTier}
-                        onChange={(e) => setField('serviceTier', e.target.value)}
-                      >
-                        <option value="default">Default</option>
-                        <option value="flex">Flex</option>
-                        <option value="fast">Fast</option>
-                        <option value="ultrafast">Ultra-fast</option>
-                      </select>
+                        options={[
+                          { value: 'default', label: 'Default' },
+                          { value: 'flex', label: 'Flex' },
+                          { value: 'fast', label: 'Fast' },
+                          { value: 'ultrafast', label: 'Ultra-fast' },
+                        ]}
+                        onChange={(value) => setField('serviceTier', value)}
+                      />
                     </label>
                     <div className="three-col">
                       <label>
@@ -731,9 +917,12 @@ function App() {
                     </div>
                     {!configValid && (
                       <p className="muted-line" role="alert">
-                        {lang === 'zh'
-                          ? '并行数须为 1–3 的整数，超时须为 10–900 的整数秒。'
-                          : 'Parallelism must be an integer from 1–3; deadline must be 10–900 whole seconds.'}
+                        {localize(
+                          t,
+                          '并行数须为 1–3 的整数，超时须为 10–900 的整数秒。',
+                          '並行數須為 1–3 的整數，逾時須為 10–900 的整數秒。',
+                          'Parallelism must be an integer from 1–3; deadline must be 10–900 whole seconds.',
+                        )}
                       </p>
                     )}
                   </div>
@@ -750,7 +939,6 @@ function App() {
                       !selected.length ||
                       !configValid ||
                       starting ||
-                      !boot?.bank ||
                       history.some((j) => !terminal(j.state))
                     }
                     onClick={start}
@@ -787,7 +975,7 @@ function JobView({
   onDownload,
 }: {
   job: Job;
-  t: any;
+  t: Text;
   expanded: string | null;
   setExpanded: (x: string | null) => void;
   onCancel: () => void;
@@ -846,8 +1034,9 @@ function JobView({
       </div>
       <div className="result-meta">
         <span>
-          {finishedSamples}/{total * 3} {t === zh ? '条采样已结束' : 'samples finished'} · {done}/
-          {total} {t === zh ? '个模型完成' : 'models completed'}
+          {finishedSamples}/{total * 3}{' '}
+          {localize(t, '条采样已结束', '條取樣已結束', 'samples finished')} · {done}/{total}{' '}
+          {localize(t, '个模型完成', '個模型完成', 'models completed')}
         </span>
         <span>
           {job.demo && <b className="demo-chip">{t.demo}</b>}
@@ -856,7 +1045,7 @@ function JobView({
       </div>
       <div className="run-context">
         <span title={job.bank.builtAt}>
-          {t === zh ? '参考库' : 'Reference'}: {job.bank.builtAt.slice(0, 19)}
+          {localize(t, '参考库', '參考庫', 'Reference')}: {job.bank.builtAt.slice(0, 19)}
         </span>
         <span>SDK {job.bank.sdk}</span>
         <span>
@@ -870,12 +1059,17 @@ function JobView({
       )}
       <details className="challenge-details">
         <summary>
-          {t === zh ? '本批次共享的 3 个挑战' : 'Three challenges shared across this batch'}
+          {localize(
+            t,
+            '本批次共享的 3 个挑战',
+            '本批次共用的 3 個挑戰',
+            'Three challenges shared across this batch',
+          )}
         </summary>
         {job.challenges.map((c, i) => (
           <div key={c.id}>
             <b>
-              {i + 1} · {c.expected_count} {t === zh ? '个数字' : 'numbers'}
+              {i + 1} · {c.expected_count} {localize(t, '个数字', '個數字', 'numbers')}
             </b>
             <p>{c.prompt}</p>
           </div>
@@ -905,7 +1099,7 @@ function JobView({
             <strong>{t.export}</strong>
             <button
               className="icon icon-button"
-              aria-label={t === zh ? '关闭导出' : 'Close export'}
+              aria-label={localize(t, '关闭导出', '關閉匯出', 'Close export')}
               onClick={() => setShowExport(false)}
             >
               ×
@@ -915,18 +1109,23 @@ function JobView({
           <div>
             <button className="text primary primary-button" onClick={copy}>
               <Clipboard size={16} />{' '}
-              {copied ? (t === zh ? '已复制' : 'Copied') : t === zh ? '复制 JSON' : 'Copy JSON'}
+              {copied
+                ? localize(t, '已复制', '已複製', 'Copied')
+                : localize(t, '复制 JSON', '複製 JSON', 'Copy JSON')}
             </button>
             {window.self === window.top && (
               <button className="ghost-button" onClick={onDownload}>
                 <DownloadSimple size={16} />
-                {t === zh ? '下载文件' : 'Download file'}
+                {localize(t, '下载文件', '下載檔案', 'Download file')}
               </button>
             )}
             <small>
-              {t === zh
-                ? '也可选中文本后手动复制保存。'
-                : 'You can also select and copy the text manually.'}
+              {localize(
+                t,
+                '也可选中文本后手动复制保存。',
+                '也可選取文字後手動複製儲存。',
+                'You can also select and copy the text manually.',
+              )}
             </small>
           </div>
         </div>
@@ -943,7 +1142,7 @@ function ResultRow({
 }: {
   r: TargetResult;
   demo?: boolean;
-  t: any;
+  t: Text;
   expanded: boolean;
   toggle: () => void;
 }) {
@@ -977,6 +1176,9 @@ function ResultRow({
           {analysis?.prediction_name || (decision ? stateLabel(t, decision) : '—')}
           <small>{demo ? t.demo : decision ? stateLabel(t, decision) : ''}</small>
         </span>
+        <span className="evidence-caveat">
+          {localize(t, '证据，不是证明', '證據，不是證明', 'Evidence, not proof')}
+        </span>
         <CaretDown size={17} className={expanded ? 'rotate' : ''} />
       </button>
       {expanded && (
@@ -985,12 +1187,13 @@ function ResultRow({
             <h3>{t.candidates}</h3>
             <span>
               {analysis?.probability_status === 'reference_calibrated'
-                ? t === zh
-                  ? '参考库内概率'
-                  : 'Within-bank probability'
-                : t === zh
-                  ? '排名分数（非概率）'
-                  : 'Ranking score (not probability)'}
+                ? localize(t, '参考库内概率', '參考庫內機率', 'Within-bank probability')
+                : localize(
+                    t,
+                    '排名分数（非概率）',
+                    '排名分數（非機率）',
+                    'Ranking score (not probability)',
+                  )}
             </span>
           </div>
           {candidates.length ? (
@@ -1025,16 +1228,22 @@ function ResultRow({
                     ? 'Unscorable'
                     : decision === 'not_model'
                       ? 'Not a model reply'
-                      : t === zh
-                        ? '暂未产生可评分候选。'
-                        : 'No scored candidates yet.')}
+                      : localize(
+                          t,
+                          '暂未产生可评分候选。',
+                          '暫未產生可評分候選。',
+                          'No scored candidates yet.',
+                        ))}
             </div>
           )}
           {analysis && (
             <p className="evidence-note">
-              {t === zh
-                ? `有效样本 ${analysis.used_outputs}/3 · 家族 ${analysis.family_prediction_name || '—'}。概率仅在参考库候选之间分配，库外模型也可能得到相近候选。`
-                : `${analysis.used_outputs}/3 usable samples · Family ${analysis.family_prediction_name || '—'}. Probabilities cover reference-bank candidates only; an unseen model can still rank close.`}
+              {localize(
+                t,
+                `有效样本 ${analysis.used_outputs}/3 · 家族 ${analysis.family_prediction_name || '—'}。概率仅在参考库候选之间分配，库外模型也可能得到相近候选。`,
+                `有效樣本 ${analysis.used_outputs}/3 · 家族 ${analysis.family_prediction_name || '—'}。機率僅在參考庫候選之間分配，庫外模型也可能得到相近候選。`,
+                `${analysis.used_outputs}/3 usable samples · Family ${analysis.family_prediction_name || '—'}. Probabilities cover reference-bank candidates only; an unseen model can still rank close.`,
+              )}
             </p>
           )}
           {r.error && <p className="notice error">{r.error}</p>}
@@ -1043,7 +1252,7 @@ function ResultRow({
               <div className="sample-tile" key={i}>
                 <header>
                   <b>
-                    {t === zh ? '采样' : 'Sample'} {i + 1}
+                    {localize(t, '采样', '取樣', 'Sample')} {i + 1}
                   </b>
                   <span className={`status ${sample.state}`}>{stateLabel(t, sample.state)}</span>
                 </header>
@@ -1052,10 +1261,11 @@ function ResultRow({
                   <small> / {sample.expected_count}</small>
                 </strong>
                 <code>
-                  {r.provenance[i]?.model || (t === zh ? '路由待确认' : 'Route unverified')}
+                  {r.provenance[i]?.model ||
+                    localize(t, '路由待确认', '路由待確認', 'Route unverified')}
                 </code>
                 {r.provenance[i]?.mismatch && (
-                  <em>{t === zh ? '实际路由已变化' : 'Route changed'}</em>
+                  <em>{localize(t, '实际路由已变化', '實際路由已變更', 'Route changed')}</em>
                 )}
                 {sample.error && <small>{sample.error}</small>}
               </div>
@@ -1077,7 +1287,7 @@ function History({
   onDelete,
 }: {
   history: Job[];
-  t: any;
+  t: Text;
   onSelect: (j: Job) => void;
   onDelete: (id: string) => void;
 }) {
@@ -1085,9 +1295,12 @@ function History({
     <div className="history-page">
       <div className="history-tools">
         <p>
-          {t === zh
-            ? `本地保存了 ${history.length} 次检测`
-            : `${history.length} runs saved locally`}
+          {localize(
+            t,
+            `本地保存了 ${history.length} 次检测`,
+            `本機儲存了 ${history.length} 次檢測`,
+            `${history.length} runs saved locally`,
+          )}
         </p>
       </div>
       <div className="list history-list">
@@ -1103,7 +1316,7 @@ function History({
                   </strong>
                   <small>
                     {new Date(j.createdAt).toLocaleString()} · {j.config.targets.length}{' '}
-                    {t === zh ? '个模型' : 'models'} · {j.id.slice(0, 8)}
+                    {localize(t, '个模型', '個模型', 'models')} · {j.id.slice(0, 8)}
                   </small>
                 </span>
               </button>
@@ -1112,8 +1325,8 @@ function History({
               </span>
               <button
                 className="icon icon-button danger-icon"
-                title={t === zh ? '删除' : 'Delete'}
-                aria-label={`${t === zh ? '删除检测记录' : 'Delete run'} ${j.id.slice(0, 8)}`}
+                title={localize(t, '删除', '刪除', 'Delete')}
+                aria-label={`${localize(t, '删除检测记录', '刪除檢測紀錄', 'Delete run')} ${j.id.slice(0, 8)}`}
                 onClick={() => onDelete(j.id)}
               >
                 <Trash size={17} />
@@ -1123,7 +1336,7 @@ function History({
         ) : (
           <div className="empty-history">
             <ClockCounterClockwise size={32} />
-            <p>{t === zh ? '还没有检测记录' : 'No detection history yet'}</p>
+            <p>{localize(t, '还没有检测记录', '還沒有檢測紀錄', 'No detection history yet')}</p>
           </div>
         )}
       </div>

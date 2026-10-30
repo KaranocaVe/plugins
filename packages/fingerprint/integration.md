@@ -49,9 +49,7 @@ Magpie and is never forwarded upstream.
 ## Local development
 
 ```sh
-bun install
-bun run check
-bun run build
+bun run rebuild
 bun start
 ```
 
@@ -69,8 +67,10 @@ bun src/cli.ts --demo
 
 Demo mode never calls a real gateway or model. Numeric first-release detection
 uses the pinned `lmfpd-sdk` 0.2.0 request/analyze flow; the SDK has no public
-tokenizer API. Each job uses a pinned reference version, three common
-challenges per batch, bounded concurrency, and explicit cancellation/limits.
+tokenizer API. Each job retains its loaded reference snapshot and records
+`builtAt`; remote data is not version-pinned or verified against a locally
+pinned hash. Jobs use three common challenges per batch, bounded concurrency,
+and explicit cancellation/limits.
 The detector reports model-family evidence, not identity authentication.
 
 ## Options and persistence
@@ -79,6 +79,15 @@ Plugin options accept `port`, `gateway`, `apiKey`, `dataDir`, and `bankSource`.
 Keep the API key in the service environment when possible. `MAGPIE_FINGERPRINT_DATA_DIR`
 overrides persistence; `MAGPIE_FINGERPRINT_BANK_SOURCE` can point to a local bank
 directory for fully offline scoring. Each batch retains its loaded detector instance.
+
+Opening/refreshing the page reads only the configured gateway and local history.
+`POST /api/bank/download` is the explicit download/refresh action; a valid
+`POST /api/jobs` also loads data if none is usable. Cached snapshots have no
+background refresh, including after the SDK default 24-hour TTL. Downloads use
+`https://lm.ikale.io/data/`, falling back to
+`https://cdn.jsdmirror.com/npm/lmfpd-data@latest/`. These hosts see the client IP
+but receive no provider credentials, model ids, prompts or replies. A custom
+`bankSource` replaces these defaults.
 
 Jobs are stored as atomic JSON files with owner-only permissions. The current limit
 is 200 batches, 24 targets per batch, three concurrent targets and three concurrent
@@ -99,8 +108,11 @@ iframe sandbox can block downloads. Standalone browser users can download a file
 
 Desktop and `magpie web` can share a listener when their service protocol and
 configuration match. The remaining host takes over if the owner exits. Different
-configurations or unrelated applications on the port are rejected. After upgrading
-from v0.1.0, turn Fingerprint off and back on once to release its older listener.
+configurations or unrelated applications on the port are rejected. The public
+health digest uses HMAC-SHA256 with an owner-only, random per-install key; the
+gateway API key still participates in matching. If the install cannot persist
+that key, processes refuse to share a listener. After upgrading, turn Fingerprint
+off and back on once to release an older listener.
 
 For OpenAI-compatible chat streams, a clean EOF after an explicit `stop` is
 normalized with `[DONE]` when the gateway omitted that sentinel. The raw response

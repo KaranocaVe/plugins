@@ -36,31 +36,45 @@ Run these commands from `packages/fingerprint/`. Source, tests and the built
 `dist/` assets are checked in. Installation and the offline tests do not need
 package downloads: `vendor/lmfpd-sdk` pins the MIT SDK at 0.2.0. Only rebuilding
 the UI and running the type checker require the development dependencies.
-Build-tool versions are pinned in `package.json`. There are no install/pack
-lifecycle scripts; after a source change, run the
-build and commit the resulting `dist/` files.
+Direct build-tool versions are exact in `package.json`; `bun.lock` fixes the
+complete dependency graph using `registry.npmjs.org`. Builds use Bun 1.4.4.
+There are no install/pack lifecycle scripts. After a source change, rebuild
+and commit the resulting `dist/` files.
 
 The standalone project and release history are at
 [KaranocaVe/magpie-fingerprint](https://github.com/KaranocaVe/magpie-fingerprint).
 
 ```sh
-bun install
-bun run check
+bun run rebuild
 bun start
 ```
 
+`rebuild` installs with `--frozen-lockfile --ignore-scripts` in an isolated
+copy, runs typecheck/tests/build, and copies `dist/` back. This avoids Bun
+resolving the parent monorepo's workspaces; its temporary directory is removed
+on completion. In a standalone copy of this package, `bun install
+--frozen-lockfile --registry https://registry.npmjs.org` and `bun run check`
+produce the same build.
+
 The plugin page service listens on `3488` by default and uses Magpie's gateway
-at `http://127.0.0.1:3425`. The first bootstrap downloads and caches the
-lm-detector reference bank; Refresh rechecks it. Reference data requests carry
-no provider credentials or model replies. Only an explicitly started job sends
-sampling prompts through the configured gateway. See [integration.md](integration.md) for gateway
-authentication, `magpie web`, environment variables, and the explicit `--demo`
-fixture.
+at `http://127.0.0.1:3425`. Opening or refreshing the page never downloads
+reference data. **Download reference data** explicitly fetches a fresh snapshot;
+starting a run downloads one only when no usable snapshot is cached. There is
+no background refresh. The default primary source is
+`https://lm.ikale.io/data/`; its fallback is
+`https://cdn.jsdmirror.com/npm/lmfpd-data@latest/`. These hosts see the client's
+IP address. Reference downloads carry no provider credentials, model ids,
+prompts or replies. Only an explicitly started job sends sampling prompts
+through the configured gateway. See [integration.md](integration.md) for gateway
+authentication, `magpie web`, environment variables, local reference sources,
+and the explicit `--demo` fixture.
 
 ## Scope and limits
 
-The first release supports numeric fingerprinting. A run uses a pinned
-reference version, three shared challenges per batch, bounded work, and
+The first release supports numeric fingerprinting. Each run retains its loaded
+reference snapshot and records its `builtAt` value. The remote reference data
+is not version-pinned or authenticated by a locally pinned hash; the fallback
+uses `@latest`. Runs use three shared challenges per batch, bounded work, and
 cancellation. It records proposed, observed, and failed evidence separately;
 it does not prove provider identity, authenticate a model, or infer hidden
 tokenizers. `--demo` runs an isolated illustrative workflow without model calls.

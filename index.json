@@ -10144,9 +10144,51 @@
               "lint": "node --check index.mjs"
             }
           }
+        },
+        "0.1.1": {
+          "file": "tgz/magpie-community-tools-goanyapi-0.1.1.tgz",
+          "integrity": "sha512-CT3DDJl7bLUHoW9yFy3JrtS9vE3XyXIH0P5241z/dv3YDN3FKQTbcvmFLGWooD0qCVxBpE0HfLeMan1i/hbWGg==",
+          "time": "2026-10-30T03:26:38.663Z",
+          "manifest": {
+            "name": "@magpie-community/tools-goanyapi",
+            "version": "0.1.1",
+            "description": "All GoAnyAPI SEO, ads and web intelligence tools, generated from its live MCP catalog, with OAuth or API key",
+            "homepage": "https://goanyapi.com/",
+            "type": "module",
+            "main": "./index.mjs",
+            "files": [
+              "index.mjs",
+              "src",
+              "README.md",
+              "LICENSE"
+            ],
+            "license": "MIT",
+            "repository": {
+              "type": "git",
+              "url": "git+https://github.com/magpie-community/plugins.git",
+              "directory": "packages/goanyapi"
+            },
+            "magpie": {
+              "icon": "https://goanyapi.com/logo.png"
+            },
+            "keywords": [
+              "magpie",
+              "magpie-tools",
+              "opencode-plugin",
+              "mcp",
+              "seo",
+              "website-traffic",
+              "ads-intelligence",
+              "goanyapi"
+            ],
+            "scripts": {
+              "test": "bun test tests",
+              "lint": "node --check index.mjs"
+            }
+          }
         }
       },
-      "latest": "0.1.0",
+      "latest": "0.1.1",
       "readme": "# GoAnyAPI for Magpie\n\nOfficial website: [goanyapi.com](https://goanyapi.com/)\n\nGoAnyAPI's complete, publicly advertised **read-only MCP API catalog** as Magpie tools. No API selection list is maintained in this plugin. It supports OAuth login through GoAnyAPI's remote MCP server and API-key login through its REST API.\n\n## Install\n\nUse **Plugins → Discover → Tools for agents** or:\n\n```sh\nmagpie plugin add @magpie-community/tools-goanyapi\n```\n\nSign in with **GoAnyAPI → Sign in** (OAuth, recommended):\n\n```sh\nmagpie plugin login goanyapi oauth\n```\n\nAlternatively choose **GoAnyAPI API key** or use `magpie plugin login goanyapi api`. Existing API keys can also be supplied with `GOANYAPI_API_KEY` in the Magpie gateway process or through the `apiKey` plugin option. OAuth credentials are kept in Magpie's sign-in storage, and requests use the remote `https://mcp.goanyapi.com/mcp` server; no privileged backend secret is distributed.\n\n## Connecting to agents\n\nMagpie exposes plugin tools at its local Streamable HTTP endpoint `http://127.0.0.1:3425/mcp/magpie/tools`. Add this endpoint to your agent's MCP configuration using the URL shown in Magpie's Plugins page. Installing the plugin alone does not modify an agent's configuration.\n\nAll current read-only API definitions come from the public `https://api.goanyapi.com/api/v1/mcp/catalog` JSON Schema directory, with GoAnyAPI's built-in catalog as a failover. New published APIs do **not** require a new PR or changes to this package. **Magpie captures the named tool set when its plugin host loads**; restart/reload the plugin to show newly added tools as individual names. The permanent `catalog` and `call_dynamic` tools read the live catalog at invocation time, allowing access to a newly published API without updating the plugin itself.\n\n## Authentication and credits\n\n- **OAuth**: browser consent and OAuth 2.1/PKCE through GoAnyAPI's authorization server. API calls are sent to the remote MCP server, which validates the user's token.\n- **API key**: REST requests to GoAnyAPI API endpoints using the user's API key, no backend-only secrets.\n- API calls may consume GoAnyAPI account credits. Tool discovery reads the public catalog and is free.\n- Never put API keys, access tokens, refresh tokens, or server-only secrets into public source or issues.\n\n## Development\n\n```sh\nnode --check packages/goanyapi/index.mjs\nbun scripts/check.mjs\nbun test\n```\n\nTests are in `packages/goanyapi/tests`. Authentication tests use stubs, not live user credentials.\n\nSource of truth: [GoAnyAPI MCP](https://github.com/GoAnyAPI/goanyapi-mcp). Magpie community repository: [magpie-community/plugins](https://github.com/magpie-community/plugins).\n"
     },
     "@magpie-community/tools-layerfs": {
